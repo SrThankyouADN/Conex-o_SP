@@ -8,6 +8,7 @@ import requests
 import msal
 import urllib3
 import json
+import os
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -137,8 +138,9 @@ async def obter_dados(request: CredentialsRequest):
         
         raise HTTPException(status_code=500, detail=str(e))
 
-# Servir arquivos estáticos
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
+# Servir arquivos estáticos (deve estar APÓS as rotas da API)
+static_dir = os.path.dirname(os.path.abspath(__file__))
+app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

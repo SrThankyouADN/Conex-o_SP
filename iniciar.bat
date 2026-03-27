@@ -76,6 +76,7 @@ echo Pressione Ctrl+C para parar
 echo.
 
 REM Iniciar FastAPI
-python app.py
+echo [*] Iniciando aplicação (pode aguardar se porta estiver em uso)...
+python limpar_porta.py
 
 pause
