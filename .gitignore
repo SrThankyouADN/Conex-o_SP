@@ -1,0 +1,40 @@
+# Ambiente Virtual
+venv/
+env/
+ENV/
+
+# Certificados SSL
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Cache
+.pytest_cache/
+.mypy_cache/
+
+# Arquivos de teste
+*.xlsx~
+*.tmp
