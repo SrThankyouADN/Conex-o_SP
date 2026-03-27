@@ -13,7 +13,17 @@
         
         <div class="form-section">
             <form id="connectionForm">
-                <button type="submit" class="btn-conectar">Carregar Arquivo</button>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required placeholder="seu@email.com" autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label for="senha">Senha:</label>
+                    <input type="password" id="senha" name="senha" required placeholder="Sua senha">
+                </div>
+                
+                <button type="submit" class="btn-conectar">Conectar</button>
             </form>
             
             <div id="message" class="message"></div>
@@ -38,18 +48,22 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            messageDiv.textContent = 'Carregando arquivo...';
+            const email = document.getElementById('email').value.trim();
+            const senha = document.getElementById('senha').value;
+            
+            messageDiv.textContent = 'Conectando...';
             messageDiv.className = 'message info';
             tableContainer.style.display = 'none';
             
             try {
-                console.log('[*] Iniciando requisição...');
+                console.log('[*] Iniciando requisição de autenticação...');
                 
                 const response = await fetch('https://localhost:8443/api/dados', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                    }
+                    },
+                    body: JSON.stringify({ email, senha })
                 });
                 
                 console.log('[*] Resposta recebida:', response.status);
@@ -91,13 +105,15 @@
                     });
                     
                     tableContainer.style.display = 'block';
+                    document.getElementById('senha').value = '';
                 }
             } catch (error) {
                 console.error('[ERRO]', error);
                 
-                // Tratamentos específicos de erro
-                if (error.message.includes('Failed to fetch')) {
-                    messageDiv.textContent = `✗ Erro de conexão. Verifique https://localhost:8443`;
+                if (error.message.includes('Credenciais')) {
+                    messageDiv.textContent = `✗ Credenciais inválidas. Verifique email e senha.`;
+                } else if (error.message.includes('Failed to fetch')) {
+                    messageDiv.textContent = `✗ Erro de conexão. Acesse https://localhost:8443`;
                 } else {
                     messageDiv.textContent = `✗ Erro: ${error.message}`;
                 }
