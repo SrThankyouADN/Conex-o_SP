@@ -1,6 +1,6 @@
-# Teste Conector SharePoint
+# Leitor de Arquivo SharePoint
 
-Aplicação simples para testar conectividade com SharePoint usando credenciais Office365.
+Aplicação simples para ler e exibir arquivos XLSX compartilhados no SharePoint usando link direto.
 
 ## Como usar
 
@@ -21,17 +21,24 @@ Abra seu navegador em: **https://localhost:8443**
 
 (Aviso de certificado é normal, clique em "Continuar mesmo assim")
 
-### 3. Usar a aplicação
+### 3. Obter o link do arquivo
 
-1. Digite seu email corporativo
-2. Digite sua senha
-3. Clique em "Conectar"
-4. Os dados do arquivo serão exibidos em uma tabela
+1. Abra o SharePoint
+2. Navegue até o arquivo XLSX
+3. Clique com botão direito → **Compartilhar**
+4. Configure para que o link seja acessível
+5. Copie a URL do arquivo
+6. Cole no campo da aplicação
+
+### 4. Visualizar dados
+
+1. Cole o link no campo "Link do Arquivo Compartilhado"
+2. Clique em "Carregar Arquivo"
+3. Os dados serão exibidos em uma tabela formatada
 
 ## Requisitos
 
 - Python 3.8+
-- OpenSSL (incluído no Windows 10+)
 
 ## Parar aplicação
 
@@ -48,8 +55,12 @@ Pressione `Ctrl + C` no terminal ou feche a janela
 - Clique em "Continuar" ou "Avançado" no navegador
 
 **Erro "Arquivo não encontrado"**
-- Verifique se arquivo existe em SharePoint no caminho correto
-- Verifique credenciais Office365
+- Verifique se o link está correto
+- Certifique-se que o arquivo está compartilhado
+
+**Erro "Acesso negado"**
+- O link pode ter expirado
+- Compartilhe o arquivo novamente e obtenha um novo link
 
 ## Estrutura
 
@@ -61,4 +72,4 @@ Pressione `Ctrl + C` no terminal ou feche a janela
 
 ---
 
-Desenvolvido para teste de conectividade com Microsoft 365 / SharePoint Online
+Desenvolvido para leitura de arquivos compartilhados do Microsoft 365 / SharePoint Online

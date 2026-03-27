@@ -40,7 +40,9 @@ echo [OK] venv ativado
 
 REM Instalar dependências
 echo [*] Instalando dependências...
-pip install -q -r requirements.txt
+echo.
+pip install -r requirements.txt
+echo.
 if errorlevel 1 (
     echo [ERRO] Falha na instalação de dependências
     pause
@@ -52,13 +54,12 @@ echo [OK] Dependências instaladas
 REM Gerar certificado HTTPS auto-assinado se não existir
 if not exist "cert.pem" (
     echo [*] Gerando certificado SSL auto-assinado...
-    openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost" >nul 2>&1
+    python gerar_cert.py
     if errorlevel 1 (
-        echo [ERRO] Falha ao gerar certificado. Certifique-se que OpenSSL está instalado.
+        echo [ERRO] Falha ao gerar certificado.
         pause
         exit /b 1
     )
-    echo [OK] Certificado gerado
 ) else (
     echo [OK] Certificado já existe
 )

@@ -1,11 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from io import BytesIO
 import openpyxl
-from office365.runtime.auth.client_credential import ClientCredential
-from office365.sharepoint.client_context import ClientContext
+import requests
 
 app = FastAPI()
 
@@ -18,43 +17,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class CredenciaisRequest(BaseModel):
-    email: str
-    senha: str
+class URLRequest(BaseModel):
+    url: str
 
-# SharePoint config
-SHAREPOINT_URL = "https://governosp.sharepoint.com"
-SITE_URL = "https://governosp.sharepoint.com/teams/SECGOVERNO-SECOM_Data"
-PASTA_CAMINHO = "001_SicomData/Miscelaneous/"
-ARQUIVO_NOME = "testeConectorPython.xlsx"
+def converter_url_para_download(url: str) -> str:
+    """Converte URL do SharePoint para URL de download direto"""
+    # Se já tem ?download=1, mantém
+    if "?download=1" in url:
+        return url
+    
+    # Formatos possíveis:
+    # 1. URL normal: ...testeConectorPython.xlsx
+    # 2. URL com ?web=1: ...testeConectorPython.xlsx?web=1
+    # 3. URL com parâmetros: ...testeConectorPython.xlsx?d=w...
+    
+    # Adicionar ?download=1 para forçar download
+    separator = "&" if "?" in url else "?"
+    return url + f"{separator}download=1"
 
 @app.get("/")
 async def root():
-    return {"status": "OK"}
+    """Servir página principal"""
+    return FileResponse("index.html", media_type="text/html")
 
 @app.post("/api/dados")
-async def obter_dados(creds: CredenciaisRequest):
+async def obter_dados(request: URLRequest):
     try:
         # Validar entrada
-        if not creds.email or not creds.senha:
-            raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
+        if not request.url or not request.url.strip():
+            raise HTTPException(status_code=400, detail="URL do arquivo é obrigatória")
         
-        # Autenticar no SharePoint (User Credentials)
-        ctx = ClientContext(SITE_URL).with_user_credentials(creds.email, creds.senha)
+        url = request.url.strip()
+        print(f"[*] URL recebida: {url}")
         
-        # Testar conexão
-        web = ctx.web.get().execute_query()
+        # Converter para URL de download
+        download_url = converter_url_para_download(url)
+        print(f"[*] URL de download: {download_url}")
         
-        # Obter arquivo da pasta
-        pasta_url = f"/teams/SECGOVERNO-SECOM_Data/Shared Documents/{PASTA_CAMINHO}"
-        file_item = ctx.web.get_file_by_server_relative_url(f"{pasta_url}{ARQUIVO_NOME}")
-        
-        # Ler arquivo em memória
-        content = BytesIO()
-        file_item.download(content).execute_query()
-        content.seek(0)
+        # Baixar arquivo
+        print("[*] Baixando arquivo...")
+        response = requests.get(download_url, timeout=30)
+        response.raise_for_status()
+        print("[OK] Arquivo baixado")
         
         # Processar Excel
+        content = BytesIO(response.content)
         workbook = openpyxl.load_workbook(content)
         worksheet = workbook.active
         
@@ -71,6 +78,8 @@ async def obter_dados(creds: CredenciaisRequest):
                                for i in range(len(headers))}
                     dados.append(row_dict)
         
+        print(f"[OK] Dados extraídos: {len(dados)} linhas, {len(headers)} colunas")
+        
         return {
             "sucesso": True,
             "headers": headers,
@@ -78,9 +87,28 @@ async def obter_dados(creds: CredenciaisRequest):
             "total_linhas": len(dados)
         }
     
+    except requests.exceptions.HTTPError as e:
+        print(f"[ERRO] HTTP {e.response.status_code}: {e}")
+        if e.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Arquivo não encontrado. Verifique o link compartilhado.")
+        elif e.response.status_code == 403:
+            raise HTTPException(status_code=403, detail="Acesso negado. O link pode ter expirado ou não estar compartilhado.")
+        else:
+            raise HTTPException(status_code=400, detail=f"Erro HTTP {e.response.status_code}")
+    
+    except requests.exceptions.Timeout:
+        print(f"[ERRO] Timeout ao baixar arquivo")
+        raise HTTPException(status_code=408, detail="Timeout ao conectar. URL inacessível ou muito lenta.")
+    
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Erro na autenticação ou leitura de arquivo: {str(e)}")
+        print(f"[ERRO] {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao processar arquivo: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
+    print("\n" + "="*50)
+    print("Iniciando servidor HTTPS")
+    print("Acesse: https://localhost:8443")
+    print("="*50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8443, ssl_keyfile="key.pem", ssl_certfile="cert.pem")
+
