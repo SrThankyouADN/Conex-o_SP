@@ -1,12 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
 import openpyxl
 import requests
-import os
+
+# URL do arquivo compartilhado (hardcoded)
+SHAREPOINT_FILE_URL = "https://governosp.sharepoint.com/:x:/r/teams/SECGOVERNO-SECOM_Data/Shared%20Documents/001_SicomData/Miscelaneous/testeConectorPython.xlsx?d=w02cbd2a2c5a24fc9835ffd9fa1c8bbaa&csf=1&web=1&e=W6cp6H"
 
 app = FastAPI()
 
@@ -28,24 +29,15 @@ def converter_url_para_download(url: str) -> str:
     if "?download=1" in url:
         return url
     
-    # Formatos possíveis:
-    # 1. URL normal: ...testeConectorPython.xlsx
-    # 2. URL com ?web=1: ...testeConadorPython.xlsx?web=1
-    # 3. URL com parâmetros: ...testeConectorPython.xlsx?d=w...
-    
-    # Adicionar ?download=1 para forçar download
-    separator = "&" if "?" in url else "?"
-    return url + f"{separator}download=1"
+    # A URL compartilhada do SharePoint já funciona para download
+    # Apenas retorna como está
+    return url
 
 @app.post("/api/dados")
-async def obter_dados(request: URLRequest):
+async def obter_dados():
     try:
-        # Validar entrada
-        if not request.url or not request.url.strip():
-            raise HTTPException(status_code=400, detail="URL do arquivo é obrigatória")
-        
-        url = request.url.strip()
-        print(f"[*] URL recebida: {url}")
+        url = SHAREPOINT_FILE_URL
+        print(f"[*] Utilizando URL hardcoded")
         
         # Converter para URL de download
         download_url = converter_url_para_download(url)

@@ -3,36 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teste Conector SharePoint</title>
+    <title>Leitor - testeConectorPython.xlsx</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <h1>Leitor de Arquivo SharePoint</h1>
+        <p class="subtitle">testeConectorPython.xlsx</p>
         
         <div class="form-section">
             <form id="connectionForm">
-                <div class="form-group">
-                    <label for="url">Link do Arquivo Compartilhado:</label>
-                    <input type="url" id="url" name="url" required placeholder="https://governosp.sharepoint.com/.../testeConectorPython.xlsx">
-                    <small>Cole aqui o link compartilhado do arquivo XLSX do SharePoint</small>
-                </div>
-                
                 <button type="submit" class="btn-conectar">Carregar Arquivo</button>
             </form>
             
             <div id="message" class="message"></div>
-        </div>
-
-        <div class="instructions">
-            <h3>Como obter o link do arquivo:</h3>
-            <ol>
-                <li>Abra o SharePoint e navegue até o arquivo</li>
-                <li>Clique com o botão direito no arquivo → <strong>Compartilhar</strong></li>
-                <li>Configure para que o link seja acessível</li>
-                <li>Copie a URL do arquivo</li>
-                <li>Cole aqui no campo acima</li>
-            </ol>
         </div>
         
         <div id="tableContainer" class="table-section" style="display: none;">
@@ -54,21 +38,18 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const url = document.getElementById('url').value.trim();
-            
             messageDiv.textContent = 'Carregando arquivo...';
             messageDiv.className = 'message info';
             tableContainer.style.display = 'none';
             
             try {
-                console.log('[*] Iniciando requisição com URL:', url);
+                console.log('[*] Iniciando requisição...');
                 
                 const response = await fetch('https://localhost:8443/api/dados', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ url })
+                    }
                 });
                 
                 console.log('[*] Resposta recebida:', response.status);
@@ -116,11 +97,7 @@
                 
                 // Tratamentos específicos de erro
                 if (error.message.includes('Failed to fetch')) {
-                    messageDiv.textContent = `✗ Erro de conexão. Verifique se aceitou o certificado auto-assinado em https://localhost:8443`;
-                } else if (error.message.includes('não encontrado')) {
-                    messageDiv.textContent = `✗ Arquivo não encontrado. Verifique se o link está correto e compartilhado.`;
-                } else if (error.message.includes('Acesso negado')) {
-                    messageDiv.textContent = `✗ Acesso negado. O link pode ter expirado. Compartilhe o arquivo novamente.`;
+                    messageDiv.textContent = `✗ Erro de conexão. Verifique https://localhost:8443`;
                 } else {
                     messageDiv.textContent = `✗ Erro: ${error.message}`;
                 }
