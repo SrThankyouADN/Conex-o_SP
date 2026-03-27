@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -9,6 +9,8 @@ import msal
 import urllib3
 import json
 import os
+import uuid
+from typing import Optional
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -28,10 +30,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Armazenamento de sessões em memória
+# token -> {"email": "user@domain.com", "password": "pass"}
+sessions = {}
+
 class CredentialsRequest(BaseModel):
     email: str
     senha: str
     caminho_arquivo: str = "teste/testeConectorPython.xlsx"  # Caminho padrão, pode ser alterado
+
+class TokenRequest(BaseModel):
+    email: str
+    senha: str
 
 def obter_token(email: str, senha: str):
     """Obtém token de acesso usando credenciais do usuário"""
@@ -56,11 +66,67 @@ def obter_token(email: str, senha: str):
         print(f"[ERRO] Erro ao obter token: {str(e)}")
         raise
 
-@app.get("/api/listar-arquivos")
-async def listar_arquivos(email: str, senha: str):
-    """Lista arquivos na raiz do OneDrive"""
+def extrair_credenciais_token(authorization_header: Optional[str] = None):
+    """Extrai email e senha do token no header Authorization"""
+    if not authorization_header:
+        raise HTTPException(status_code=401, detail="Autorização necessária")
+    
+    # Esperado: "Bearer <token>"
+    parts = authorization_header.split(" ")
+    if len(parts) != 2 or parts[0] != "Bearer":
+        raise HTTPException(status_code=401, detail="Formato de autorização inválido")
+    
+    token = parts[1]
+    
+    if token not in sessions:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+    
+    creds = sessions[token]
+    return creds["email"], creds["senha"]
+
+# ============= ENDPOINTS =============
+
+@app.post("/api/token")
+async def criar_token(request: TokenRequest):
+    """Cria um token de sessão usando email e senha"""
     try:
-        print(f"[*] Listando arquivos de: {email}")
+        email = request.email.strip()
+        senha = request.senha.strip()
+        
+        if not email or not senha:
+            raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
+        
+        print(f"[*] Autenticando: {email}")
+        
+        # Validar credenciais tentando obter um token MSAL
+        access_token = obter_token(email, senha)
+        
+        print("[OK] Credenciais validadas")
+        
+        # Gerar token de sessão único
+        session_token = str(uuid.uuid4())
+        sessions[session_token] = {
+            "email": email,
+            "senha": senha
+        }
+        
+        return {
+            "sucesso": True,
+            "token": session_token
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERRO] {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Erro de autenticação: {str(e)}")
+
+@app.get("/api/sites")
+async def listar_sites(authorization: Optional[str] = Header(None)):
+    """Lista todos os sites/grupos disponíveis"""
+    try:
+        email, senha = extrair_credenciais_token(authorization)
+        print(f"[*] Listando sites para: {email}")
         
         # Obter token
         access_token = obter_token(email, senha)
@@ -69,9 +135,9 @@ async def listar_arquivos(email: str, senha: str):
             "Authorization": f"Bearer {access_token}",
         }
         
-        # Listar arquivos da raiz
+        # Listar grupos que o usuário é membro
         response = requests.get(
-            "https://graph.microsoft.com/v1.0/me/drive/root/children",
+            "https://graph.microsoft.com/v1.0/me/memberOf",
             headers=headers,
             verify=False,
             timeout=30
@@ -80,32 +146,25 @@ async def listar_arquivos(email: str, senha: str):
         if response.status_code == 200:
             items = response.json().get("value", [])
             
-            # Formatar resposta
-            arquivos = []
-            pastas = []
-            
+            # Filtrar apenas grupos e teams
+            sites = []
             for item in items:
-                if item.get("folder"):
-                    pastas.append({
-                        "nome": item.get("name"),
-                        "tipo": "pasta"
-                    })
-                else:
-                    arquivos.append({
-                        "nome": item.get("name"),
-                        "tipo": "arquivo",
-                        "tamanho": item.get("size")
+                # Filtrar por @odata.type para pegar apenas grupos
+                odata_type = item.get("@odata.type", "")
+                if "group" in odata_type.lower():
+                    sites.append({
+                        "id": item.get("id"),
+                        "nome": item.get("displayName", "Unknown"),
+                        "mail": item.get("mail", ""),
+                        "tipo": "grupo"
                     })
             
-            return {
-                "sucesso": True,
-                "pastas": pastas,
-                "arquivos": arquivos,
-                "total": len(items)
-            }
+            print(f"[OK] {len(sites)} sites encontrados")
+            
+            return sites
         else:
             print(f"[ERRO] {response.status_code}: {response.text[:200]}")
-            raise HTTPException(status_code=response.status_code, detail="Erro ao listar arquivos")
+            raise HTTPException(status_code=response.status_code, detail="Erro ao listar sites")
             
     except HTTPException:
         raise
@@ -113,59 +172,162 @@ async def listar_arquivos(email: str, senha: str):
         print(f"[ERRO] {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/dados")
-async def obter_dados(request: CredentialsRequest):
-    """Obtém dados do arquivo usando credenciais"""
+@app.get("/api/sites/{site_id}/arquivos")
+async def listar_arquivos_site(site_id: str, authorization: Optional[str] = Header(None)):
+    """Lista arquivos de um site específico (raiz)"""
     try:
-        email = request.email.strip()
-        senha = request.senha.strip()
-        caminho = request.caminho_arquivo.strip()
-        
-        if not email or not senha:
-            raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
-        
-        if not caminho:
-            raise HTTPException(status_code=400, detail="Caminho do arquivo é obrigatório")
-        
-        print(f"[*] Autenticando como: {email}")
-        print(f"[*] Arquivo: {caminho}")
+        email, senha = extrair_credenciais_token(authorization)
+        print(f"[*] Listando arquivos do site: {site_id}")
         
         # Obter token
-        print("[*] Obtendo token de acesso...")
         access_token = obter_token(email, senha)
-        print("[OK] Token obtido com sucesso")
         
-        # Usar token para acessar arquivo
-        print("[*] Buscando arquivo no OneDrive...")
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+        }
+        
+        # Obter o drive do grupo
+        drive_url = f"https://graph.microsoft.com/v1.0/groups/{site_id}/drive"
+        drive_resp = requests.get(drive_url, headers=headers, verify=False, timeout=30)
+        
+        if drive_resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Drive não encontrado neste site")
+        
+        drive_id = drive_resp.json().get("id")
+        print(f"    Drive ID: {drive_id}")
+        
+        # Listar arquivos da raiz
+        item_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root/children"
+        
+        pastas = []
+        arquivos = []
+        
+        # Suportar paginação
+        while item_url:
+            items_resp = requests.get(item_url, headers=headers, verify=False, timeout=30)
+            
+            if items_resp.status_code != 200:
+                print(f"[ERRO] {items_resp.status_code}: {items_resp.text[:200]}")
+                raise HTTPException(status_code=404, detail="Caminho não encontrado ou não tem permissão")
+            
+            data = items_resp.json()
+            items = data.get("value", [])
+            
+            for item in items:
+                if item.get("folder"):
+                    pastas.append({
+                        "id": item.get("id"),
+                        "nome": item.get("name"),
+                        "tipo": "pasta"
+                    })
+                else:
+                    arquivos.append({
+                        "id": item.get("id"),
+                        "nome": item.get("name"),
+                        "size": item.get("size", 0),
+                        "drive_id": drive_id
+                    })
+            
+            # Verificar se há mais páginas
+            item_url = data.get("@odata.nextLink")
+        
+        print(f"[OK] {len(pastas)} pastas, {len(arquivos)} arquivos")
+        
+        return {
+            "drive_id": drive_id,
+            "pastas": pastas,
+            "arquivos": arquivos
+        }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERRO] {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/pastas/{drive_id}/{folder_id}/conteudo")
+async def listar_conteudo_pasta(drive_id: str, folder_id: str, authorization: Optional[str] = Header(None)):
+    """Lista o conteúdo de uma pasta específica"""
+    try:
+        email, senha = extrair_credenciais_token(authorization)
+        print(f"[*] Listando conteúdo da pasta: drive={drive_id}, folder={folder_id}")
+        
+        # Obter token
+        access_token = obter_token(email, senha)
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+        }
+        
+        # Listar itens da pasta
+        item_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}/children"
+        
+        pastas = []
+        arquivos = []
+        
+        # Suportar paginação
+        while item_url:
+            items_resp = requests.get(item_url, headers=headers, verify=False, timeout=30)
+            
+            if items_resp.status_code != 200:
+                print(f"[ERRO] {items_resp.status_code}: {items_resp.text[:200]}")
+                raise HTTPException(status_code=404, detail="Pasta não encontrada ou não tem permissão")
+            
+            data = items_resp.json()
+            items = data.get("value", [])
+            
+            for item in items:
+                if item.get("folder"):
+                    pastas.append({
+                        "id": item.get("id"),
+                        "nome": item.get("name"),
+                        "tipo": "pasta"
+                    })
+                else:
+                    arquivos.append({
+                        "id": item.get("id"),
+                        "nome": item.get("name"),
+                        "size": item.get("size", 0),
+                        "drive_id": drive_id
+                    })
+            
+            # Verificar se há mais páginas
+            item_url = data.get("@odata.nextLink")
+        
+        print(f"[OK] {len(pastas)} pastas, {len(arquivos)} arquivos")
+        
+        return {
+            "pastas": pastas,
+            "arquivos": arquivos
+        }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERRO] {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/arquivos/{drive_id}/{item_id}/conteudo")
+async def obter_conteudo_arquivo(drive_id: str, item_id: str, authorization: Optional[str] = Header(None)):
+    """Obtém o conteúdo de um arquivo Excel"""
+    try:
+        email, senha = extrair_credenciais_token(authorization)
+        print(f"[*] Obtendo arquivo: drive={drive_id}, item={item_id}")
+        
+        # Obter token
+        access_token = obter_token(email, senha)
         
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/octet-stream"
         }
         
-        # URL dinâmica do arquivo no Microsoft Graph (OneDrive pessoal)
-        # Escapa caracteres especiais no caminho para URL
-        caminho_encoded = caminho.replace(" ", "%20")
-        arquivo_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{caminho_encoded}:/content"
+        # Baixar arquivo
+        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/content"
+        response = requests.get(url, headers=headers, verify=False, timeout=30)
         
-        print(f"[*] URL: {arquivo_url}")
-        
-        response = requests.get(
-            arquivo_url,
-            headers=headers,
-            verify=False,
-            timeout=30
-        )
-        
-        print(f"[*] Status: {response.status_code}")
-        
-        if response.status_code == 401:
-            raise HTTPException(status_code=401, detail="Credenciais inválidas ou acesso negado.")
-        elif response.status_code == 404:
-            raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
-        elif response.status_code != 200:
-            print(f"[ERRO] {response.status_code}: {response.text[:200]}")
-            raise Exception(f"Erro {response.status_code}")
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Erro ao baixar arquivo")
         
         print("[OK] Arquivo baixado")
         
@@ -188,7 +350,6 @@ async def obter_dados(request: CredentialsRequest):
         print(f"[OK] {len(dados)} linhas extraídas")
         
         return {
-            "sucesso": True,
             "headers": headers_list,
             "dados": dados,
             "total_linhas": len(dados)
@@ -197,12 +358,9 @@ async def obter_dados(request: CredentialsRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ERRO] {type(e).__name__}: {str(e)}")
-        
-        if "Conditional Access" in str(e) or "AADSTS" in str(e):
-            raise HTTPException(status_code=403, detail="Acesso bloqueado por política de acesso condicional. Contacte administrador.")
-        
+        print(f"[ERRO] {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # Servir arquivos estáticos (deve estar APÓS as rotas da API)
 static_dir = os.path.dirname(os.path.abspath(__file__))
@@ -214,4 +372,3 @@ if __name__ == "__main__":
     print("Iniciando servidor HTTPS com autenticação JSON")
     print("="*50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8443, ssl_keyfile="key.pem", ssl_certfile="cert.pem")
-

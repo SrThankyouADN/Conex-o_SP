@@ -1,99 +1,180 @@
-# Leitor de Arquivo OneDrive
+# Navegador de Arquivos SharePoint
 
-Aplicação simples para ler arquivos Excel do OneDrive usando **autenticação por credenciais** com Microsoft Graph API.
+Aplicação simples para conectar, autenticar e explorar arquivos do Microsoft SharePoint Online e OneDrive. Permite navegação multi-nível em pastas e visualização de arquivos Excel.
 
-## Como usar
+## Características
 
-### 1. Primeiro acesso (ou após clonar o repositório)
-
-Duplo-clique em `iniciar.bat`
-
-Isso vai:
-- Verificar instalação do Python
-- Criar ambiente isolado (venv)
-- Instalar dependências automaticamente
-- Gerar certificado HTTPS auto-assinado
-- Iniciar servidor FastAPI
-
-### 2. Acessar a aplicação
-
-Abra seu navegador em: **https://localhost:8443**
-
-(Aviso de certificado é normal - é auto-assinado, clique em "Continuar mesmo assim")
-
-### 3. Autenticar
-
-1. Digite seu **email corporativo** (ex: usuario@sp.gov.br)
-2. Digite sua **senha**
-3. Clique em **"Conectar"**
-
-A aplicação fará autenticação não-interativa com a Microsoft e acessará seu OneDrive pessoal.
-
-### 4. Visualizar dados
-
-O arquivo será carregado automaticamente após autenticação. Dados exibidos em uma tabela formatada.
-
-#### Arquivo acessado:
-- **Localização**: OneDrive pessoal → `teste/testeConectorPython.xlsx`
-- **Formato**: .xlsx (Excel)
-- **Exibição**: Tabela HTML com headers e dados
+- ✓ Autenticação com email e senha (MSAL + Microsoft Graph API)
+- ✓ Listagem de grupos/sites SharePoint
+- ✓ Navegação recursiva em pastas
+- ✓ Suporte a paginação (>200 itens)
+- ✓ Visualização de arquivos Excel (.xlsx)
+- ✓ Interface web responsiva (HTML + CSS + JavaScript)
+- ✓ Comunicação HTTPS com certificado auto-assinado
 
 ## Requisitos
 
 - Python 3.8+
-- Conexão com internet
-- Conta Microsoft corporativa (M365/Azure AD)
-- Acesso ao OneDrive pessoal
+- Windows, macOS, ou Linux
 
-## Estrutura
+## Instalação
+
+```bash
+# Clonar repositório
+git clone https://github.com/usuario/sharepoint-file-navigator
+cd sharepoint-file-navigator
+
+# Criar ambiente virtual
+python -m venv venv
+
+# Ativar ambiente virtual
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# Instalar dependências
+pip install -r requirements.txt
+```
+
+## Configuração
+
+1. **Criar arquivo de credenciais:**
+   ```bash
+   cp credentials.json.template credentials.json
+   ```
+
+2. **Editar `credentials.json`:**
+   ```json
+   {
+     "email": "seu.email@seudominio.com.br",
+     "senha": "sua_senha_aqui"
+   }
+   ```
+
+3. **Gerar certificados SSL (primeira vez):**
+   ```bash
+   # Certificados já estão inclusos, ou regenere:
+   # openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365
+   ```
+
+## Uso
+
+```bash
+# Ativar ambiente virtual (se não estiver)
+venv\Scripts\activate
+
+# Iniciar servidor HTTPS
+python app.py
+```
+
+O aplicativo estará disponível em: **https://localhost:8443**
+
+## Fluxo de Uso
+
+1. **Login**: Digite email e senha corporativa
+2. **Selecionar Site**: Escolha um grupo/site SharePoint
+3. **Navegar**: Explore pastas e subpastas recursivamente
+4. **Visualizar**: Abra arquivos Excel para ver dados em tabela
+
+## Estrutura do Projeto
 
 ```
 .
-├── app.py                # Backend FastAPI + MSAL (não-interativo)
-├── index.html           # Frontend (formulário email/senha + tabela)  
-├── style.css            # Estilos CSS
-├── requirements.txt      # Dependências Python
-├── iniciar.bat          # Auto-setup Windows
-└── credentials.json     # Template de credenciais (git-ignored)
+├── app.py                      # Backend FastAPI (API + autenticação)
+├── index.html                  # Interface web (HTML)
+├── style.css                   # Estilos (CSS)
+├── credentials.json.template   # Template de credenciais
+├── credentials.json            # Credenciais (gitignored)
+├── requirements.txt            # Dependências Python
+├── cert.pem                    # Certificado SSL (auto-assinado)
+├── key.pem                     # Chave privada SSL
+├── iniciar.bat                 # Script de inicialização (Windows)
+└── README.md                   # Este arquivo
 ```
 
-## Parar aplicação
+## API
 
-Pressione `Ctrl + C` no terminal ou feche a janela
+### Autenticação
+- **POST /api/token** - Cria sessão com email/senha
+  - Retorna: `{ "token": "uuid" }`
+
+### Sites
+- **GET /api/sites** - Lista grupos/sites do usuário
+  - Header: `Authorization: Bearer <token>`
+  - Retorna: Array de `{ id, nome, mail, tipo }`
+
+### Arquivos
+- **GET /api/sites/{site_id}/arquivos** - Lista arquivos da raiz
+  - Header: `Authorization: Bearer <token>`
+  - Retorna: `{ drive_id, pastas[], arquivos[] }`
+
+- **GET /api/pastas/{drive_id}/{folder_id}/conteudo** - Lista conteúdo de pasta
+  - Header: `Authorization: Bearer <token>`
+  - Retorna: `{ pastas[], arquivos[] }`
+
+- **GET /api/arquivos/{drive_id}/{item_id}/conteudo** - Baixa e processa Excel
+  - Header: `Authorization: Bearer <token>`
+  - Retorna: `{ headers[], dados[], total_linhas }`
+
+## Stack Tecnológico
+
+**Backend:**
+- FastAPI 0.104.1
+- MSAL 1.26.0 (autenticação Azure AD)
+- openpyxl 3.1.5 (leitura Excel)
+- uvicorn[ssl] 0.24.0 (servidor HTTPS)
+
+**Frontend:**
+- HTML5
+- CSS3 (Flexbox)
+- JavaScript vanilla (Fetch API)
+
+## Segurança
+
+⚠️ **AVALIAÇÃO DE DESENVOLVIMENTO:**
+- Usa certificado auto-assinado (usar certificado válido em produção)
+- Armazena credenciais em sessão em memória (usar Redis/cache persistente em produção)
+- Desativa validação SSL em certificados (apenas para teste com localhost)
+
+**Para produção:**
+1. Usar certificados válidos (Let's Encrypt)
+2. Implementar refresh token rotation
+3. Armazenar sessões em database/cache
+4. Usar CORS restritivo
+5. Adicionar rate limiting
+6. Implementar logging e monitoramento
+
+## Limitações
+
+- Máximo 200 itens por página (paginação automática)
+- Suporta apenas leitura de Excel
+- Sem compressão de downloads
+- Sem cache de resultados
 
 ## Troubleshooting
 
-**Erro "Python não encontrado"**
-- Instale Python de https://www.python.org
+### "Porta 8443 já em uso"
+```bash
+# Matar processo na porta 8443 (Windows)
+netstat -ano | findstr :8443
+taskkill /PID <PID> /F
+```
 
-**Erro de certificado SSL no navegador**
-- É normal ser auto-assinado, clique "Continuar mesmo assim"
+### "Credenciais inválidas"
+- Verificar email e senha
+- Verificar se está usando conta corporativa (não pessoal)
+- Verificar se há restrições de acesso condicional
 
-**Erro "Credenciais inválidas"**
-- Verifique email e senha
-- Tente copiar/colar para evitar caracteres especiais
-- Conta deve ser corporativa (Microsoft 365), não pessoal
+### "Arquivo não encontrado"
+- Verificar se tem permissão no SharePoint
+- Tentar explorar pasta por pasta
 
-**Erro "Arquivo não encontrado"**
-- Verifique se o arquivo está em: `OneDrive/teste/testeConectorPython.xlsx`
-- Verifique permissões de acesso
+## Licença
 
-**Erro "Acesso bloqueado por Conditional Access"**
-- Sua organização pode ter bloqueado autenticação não-interativa
-- Contacte suporte da organização (SECOM/TI)
-- Solicite exceção de Conditional Access para o aplicativo
+MIT License
 
-**Erro "Erro de conexão / HTTPS"**
-- Certificado auto-assinado é normal
-- Clique em "Continuar" no navegador
+## Autor
 
-## Notas de Segurança
+Adriano A. Sousa
 
-- Credenciais são apenas armazenadas localmente (git-ignored)
-- Não são transmitidas para servidor remoto
-- Cada requisição obtém novo token da Microsoft
-- HTTPS garante transmissão criptografada
-
----
-
-Desenvolvido para leitura de arquivos do Microsoft 365 OneDrive

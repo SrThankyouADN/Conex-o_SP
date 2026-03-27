@@ -3,10 +3,6 @@ venv/
 env/
 ENV/
 
-# Certificados SSL
-*.pem
-*.key
-
 # Python
 __pycache__/
 *.py[cod]
@@ -16,31 +12,28 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.pytest_cache/
+.mypy_cache/
 
 # IDE
 .vscode/
 .idea/
 *.swp
-
-# Credenciais
-credentials.json
-.vscode/
-.idea/
-*.swp
 *.swo
 
-# Sistema
-.DS_Store
-Thumbs.db
+# Segurança - Credenciais
+credentials.json
 
 # Variáveis de ambiente
 .env
 .env.local
 
-# Cache
-.pytest_cache/
-.mypy_cache/
+# Sistema
+.DS_Store
+Thumbs.db
 
-# Arquivos de teste
-*.xlsx~
+# Arquivos temporários
 *.tmp
+*.xlsx~
+*.log
+

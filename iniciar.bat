@@ -51,19 +51,6 @@ if errorlevel 1 (
 
 echo [OK] Dependências instaladas
 
-REM Gerar certificado HTTPS auto-assinado se não existir
-if not exist "cert.pem" (
-    echo [*] Gerando certificado SSL auto-assinado...
-    python gerar_cert.py
-    if errorlevel 1 (
-        echo [ERRO] Falha ao gerar certificado.
-        pause
-        exit /b 1
-    )
-) else (
-    echo [OK] Certificado já existe
-)
-
 echo.
 echo ========================================
 echo  Iniciando Servidor HTTPS
@@ -76,7 +63,4 @@ echo Pressione Ctrl+C para parar
 echo.
 
 REM Iniciar FastAPI
-echo [*] Iniciando aplicação (pode aguardar se porta estiver em uso)...
-python limpar_porta.py
-
-pause
+python app.py

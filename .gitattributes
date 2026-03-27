@@ -1,0 +1,32 @@
+* text=auto
+
+# Python
+*.py text eol=lf
+*.pyx text eol=lf
+*.pxd text eol=lf
+*.pxi text eol=lf
+
+# Shell
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Batch
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.exe binary
+
+# HTML/CSS/JS
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# Markdown
+*.md text eol=lf
+*.README text eol=lf
+
+# Dados
+*.xlsx binary
+*.xls binary
+*.pem text eol=lf
+*.key text eol=lf
