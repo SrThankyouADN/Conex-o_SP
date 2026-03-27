@@ -1,6 +1,7 @@
 fastapi==0.104.1
 uvicorn[ssl]==0.24.0
-office365-rest-python-client==2.3.9
+shareplum==0.5.1
 requests==2.31.0
 openpyxl==3.1.5
 python-dotenv==1.0.0
+lxml==4.9.3

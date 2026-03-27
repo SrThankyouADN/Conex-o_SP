@@ -4,13 +4,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
 import openpyxl
-from office365.runtime.auth.user_credential import UserCredential
-from office365.sharepoint.client_context import ClientContext
+from shareplum import Site
+from shareplum.auth import HttpNtlmAuth
 
-# URL do arquivo compartilhado (hardcoded)
-SHAREPOINT_FILE_URL = "https://governosp.sharepoint.com/:x:/r/teams/SECGOVERNO-SECOM_Data/Shared%20Documents/001_SicomData/Miscelaneous/testeConectorPython.xlsx?d=w02cbd2a2c5a24fc9835ffd9fa1c8bbaa&csf=1&web=1&e=W6cp6H"
+# Constantes do SharePoint
 SITE_URL = "https://governosp.sharepoint.com/teams/SECGOVERNO-SECOM_Data"
-PASTA_URL = "/teams/SECGOVERNO-SECOM_Data/Shared Documents/001_SicomData/Miscelaneous/testeConectorPython.xlsx"
+ARQUIVO_RELATIVO = "/Shared Documents/001_SicomData/Miscelaneous/testeConectorPython.xlsx"
 
 app = FastAPI()
 
@@ -38,27 +37,23 @@ async def obter_dados(request: CredenciaisRequest):
         
         print(f"[*] Autenticando como: {email}")
         
-        # Autenticar no SharePoint
-        credentials = UserCredential(email, senha)
-        ctx = ClientContext(SITE_URL).with_credentials(credentials)
+        # Autenticar no SharePoint diretamente com NTLM credentials
+        auth = HttpNtlmAuth(email, senha)
+        site = Site(SITE_URL, auth=auth)
         
         # Testar conexão
         print("[*] Testando conexão...")
-        web = ctx.web.get().execute_query()
-        print(f"[OK] Conectado a: {web.properties['Title']}")
+        web = site.web
+        print(f"[OK] Conectado a: {SITE_URL}")
         
         # Obter arquivo
         print("[*] Buscando arquivo...")
-        file_item = ctx.web.get_file_by_server_relative_url(PASTA_URL)
-        
-        # Ler arquivo em memória
-        content = BytesIO()
-        file_item.download(content).execute_query()
-        content.seek(0)
+        arquivo_content = web.get_file(ARQUIVO_RELATIVO)
         print("[OK] Arquivo baixado")
         
         # Processar Excel
-        workbook = openpyxl.load_workbook(content)
+        excel_stream = BytesIO(arquivo_content)
+        workbook = openpyxl.load_workbook(excel_stream)
         worksheet = workbook.active
         
         # Extrair dados (primeira linha é cabeçalho)
@@ -70,9 +65,8 @@ async def obter_dados(request: CredenciaisRequest):
                 if idx == 0:
                     headers = [str(cell) if cell else "" for cell in row]
                 else:
-                    row_dict = {headers[i]: str(row[i]) if row[i] is not None else "" 
-                               for i in range(len(headers))}
-                    dados.append(row_dict)
+                    row_data = [str(cell) if cell is not None else "" for cell in row]
+                    dados.append(row_data)
         
         print(f"[OK] Dados extraídos: {len(dados)} linhas, {len(headers)} colunas")
         
@@ -87,7 +81,7 @@ async def obter_dados(request: CredenciaisRequest):
         print(f"[ERRO] {str(e)}")
         erro_msg = str(e).lower()
         
-        if "access denied" in erro_msg or "401" in erro_msg or "unauthorized" in erro_msg:
+        if "401" in str(e) or "unauthorized" in erro_msg or "invalid credentials" in erro_msg:
             raise HTTPException(status_code=401, detail="Credenciais inválidas ou acesso negado.")
         elif "not found" in erro_msg or "404" in erro_msg:
             raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
