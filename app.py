@@ -14,7 +14,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuração Azure AD para autenticação não-interativa
 CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
-AUTHORITY = "https://login.microsoftonline.com/common"
+AUTHORITY = "https://login.microsoftonline.com/organizations"  # Mudado de /common para /organizations
 SCOPE = ["https://graph.microsoft.com/.default"]
 
 app = FastAPI()
