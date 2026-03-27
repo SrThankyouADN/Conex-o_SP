@@ -1,6 +1,6 @@
 # Leitor de Arquivo SharePoint
 
-Aplicação simples para ler e exibir arquivos XLSX compartilhados no SharePoint usando link direto.
+Aplicação simples para ler arquivos Excel do SharePoint usando **autenticação OAuth2** com Microsoft Azure AD.
 
 ## Como usar
 
@@ -10,35 +10,50 @@ Duplo-clique em `iniciar.bat`
 
 Isso vai:
 - Verificar instalação do Python
-- Criar ambiente isolado
+- Criar ambiente isolado (venv)
 - Instalar dependências automaticamente
-- Gerar certificado HTTPS
-- Iniciar aplicação
+- Gerar certificado HTTPS auto-assinado
+- Iniciar servidor FastAPI
 
 ### 2. Acessar a aplicação
 
 Abra seu navegador em: **https://localhost:8443**
 
-(Aviso de certificado é normal, clique em "Continuar mesmo assim")
+(Aviso de certificado é normal - é auto-assinado, clique em "Continuar mesmo assim")
 
-### 3. Obter o link do arquivo
+### 3. Fazer login
 
-1. Abra o SharePoint
-2. Navegue até o arquivo XLSX
-3. Clique com botão direito → **Compartilhar**
-4. Configure para que o link seja acessível
-5. Copie a URL do arquivo
-6. Cole no campo da aplicação
+1. Clique no botão **"🔐 Login com Microsoft"**
+2. Você será redirecionado para fazer login
+3. Use suas credenciais corporativas Microsoft
+4. Após autenticação, será redirecionado de volta automaticamente
 
 ### 4. Visualizar dados
 
-1. Cole o link no campo "Link do Arquivo Compartilhado"
-2. Clique em "Carregar Arquivo"
-3. Os dados serão exibidos em uma tabela formatada
+O arquivo será carregado automaticamente após o login. Dados exibidos em uma tabela formatada.
+
+### 5. Desconectar
+
+Clique em "Desconectar" para fazer logout.
 
 ## Requisitos
 
 - Python 3.8+
+- Conexão com internet
+- Conta Microsoft corporativa (Azure AD)
+- Acesso ao SharePoint da organização
+
+## Structure
+
+```
+.
+├── app.py                # Backend FastAPI + OAuth2 + MSAL
+├── index.html           # Frontend (OAuth2 login + table)  
+├── style.css            # Estilos
+├── requirements.txt      # Dependências
+├── iniciar.bat          # Auto-setup Windows
+└── credentials.json     # Credenciais (git-ignored)
+```
 
 ## Parar aplicação
 
@@ -48,6 +63,13 @@ Pressione `Ctrl + C` no terminal ou feche a janela
 
 **Erro "Python não encontrado"**
 - Instale Python de https://www.python.org
+
+**Erro de certificado SSL no navegador**
+- É normal ser auto-assinado, clique "Continuar mesmo assim"
+
+**Login redireciona para erro**
+- Verifique se você está conectado com conta Azure AD
+- Se usar conta pessoal, ela não vai funcionar
 - Marque "Add Python to PATH" durante instalação
 
 **Erro de certificado SSL**
