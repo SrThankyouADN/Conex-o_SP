@@ -1,7 +1,6 @@
 fastapi==0.104.1
 uvicorn[ssl]==0.24.0
 shareplum==0.5.1
-requests==2.31.0
+requests-ntlm==1.2.0
 openpyxl==3.1.5
 python-dotenv==1.0.0
-lxml==4.9.3
