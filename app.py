@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from io import BytesIO
 import openpyxl
 from shareplum import Site
-from shareplum.auth import HttpNtlmAuth
+from requests_ntlm import HttpNtlmAuth
 
 # Constantes do SharePoint
 SITE_URL = "https://governosp.sharepoint.com/teams/SECGOVERNO-SECOM_Data"
