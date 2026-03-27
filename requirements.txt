@@ -3,3 +3,4 @@ uvicorn[ssl]==0.24.0
 requests==2.31.0
 openpyxl==3.1.5
 python-dotenv==1.0.0
+msal==1.26.0
