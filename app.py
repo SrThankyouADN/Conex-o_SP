@@ -25,13 +25,27 @@ class URLRequest(BaseModel):
 
 def converter_url_para_download(url: str) -> str:
     """Converte URL do SharePoint para URL de download direto"""
-    # Se já tem ?download=1, mantém
+    # URL formato: https://governosp.sharepoint.com/:x:/r/teams/.../arquivo.xlsx?...
+    # Precisa ser convertida para formato de download
+    
+    # Se contém /:x:/r/, converter para /teams/.../arquivo.xlsx?download=1
+    if "/:x:/r/" in url:
+        # Extrair a parte entre /r/ e os parâmetros
+        parts = url.split("/:x:/r/")
+        if len(parts) == 2:
+            path_part = parts[1].split("?")[0]  # Remove parâmetros
+            base_url = "https://governosp.sharepoint.com"
+            # Retornar URL com ?download=1
+            new_url = f"{base_url}/{path_part}?download=1"
+            print(f"[*] URL convertida para: {new_url}")
+            return new_url
+    
+    # Fallback: adicionar ?download=1 se não tiver
     if "?download=1" in url:
         return url
     
-    # A URL compartilhada do SharePoint já funciona para download
-    # Apenas retorna como está
-    return url
+    separator = "&" if "?" in url else "?"
+    return url + f"{separator}download=1"
 
 @app.post("/api/dados")
 async def obter_dados():
@@ -43,9 +57,13 @@ async def obter_dados():
         download_url = converter_url_para_download(url)
         print(f"[*] URL de download: {download_url}")
         
-        # Baixar arquivo
+        # Baixar arquivo com headers apropriados
         print("[*] Baixando arquivo...")
-        response = requests.get(download_url, timeout=30)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+        response = requests.get(download_url, headers=headers, timeout=30, allow_redirects=True)
         response.raise_for_status()
         print("[OK] Arquivo baixado")
         
