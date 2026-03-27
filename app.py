@@ -31,6 +31,7 @@ app.add_middleware(
 class CredentialsRequest(BaseModel):
     email: str
     senha: str
+    caminho_arquivo: str = "teste/testeConectorPython.xlsx"  # Caminho padrão, pode ser alterado
 
 def obter_token(email: str, senha: str):
     """Obtém token de acesso usando credenciais do usuário"""
@@ -55,17 +56,79 @@ def obter_token(email: str, senha: str):
         print(f"[ERRO] Erro ao obter token: {str(e)}")
         raise
 
+@app.get("/api/listar-arquivos")
+async def listar_arquivos(email: str, senha: str):
+    """Lista arquivos na raiz do OneDrive"""
+    try:
+        print(f"[*] Listando arquivos de: {email}")
+        
+        # Obter token
+        access_token = obter_token(email, senha)
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+        }
+        
+        # Listar arquivos da raiz
+        response = requests.get(
+            "https://graph.microsoft.com/v1.0/me/drive/root/children",
+            headers=headers,
+            verify=False,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            items = response.json().get("value", [])
+            
+            # Formatar resposta
+            arquivos = []
+            pastas = []
+            
+            for item in items:
+                if item.get("folder"):
+                    pastas.append({
+                        "nome": item.get("name"),
+                        "tipo": "pasta"
+                    })
+                else:
+                    arquivos.append({
+                        "nome": item.get("name"),
+                        "tipo": "arquivo",
+                        "tamanho": item.get("size")
+                    })
+            
+            return {
+                "sucesso": True,
+                "pastas": pastas,
+                "arquivos": arquivos,
+                "total": len(items)
+            }
+        else:
+            print(f"[ERRO] {response.status_code}: {response.text[:200]}")
+            raise HTTPException(status_code=response.status_code, detail="Erro ao listar arquivos")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERRO] {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/dados")
 async def obter_dados(request: CredentialsRequest):
     """Obtém dados do arquivo usando credenciais"""
     try:
         email = request.email.strip()
         senha = request.senha.strip()
+        caminho = request.caminho_arquivo.strip()
         
         if not email or not senha:
             raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
         
+        if not caminho:
+            raise HTTPException(status_code=400, detail="Caminho do arquivo é obrigatório")
+        
         print(f"[*] Autenticando como: {email}")
+        print(f"[*] Arquivo: {caminho}")
         
         # Obter token
         print("[*] Obtendo token de acesso...")
@@ -80,9 +143,12 @@ async def obter_dados(request: CredentialsRequest):
             "Accept": "application/octet-stream"
         }
         
-        # URL do arquivo no Microsoft Graph (OneDrive pessoal)
-        # Caminho: myfiles/teste/testeConectorPython.xlsx
-        arquivo_url = "https://graph.microsoft.com/v1.0/me/drive/root:/teste/testeConectorPython.xlsx:/content"
+        # URL dinâmica do arquivo no Microsoft Graph (OneDrive pessoal)
+        # Escapa caracteres especiais no caminho para URL
+        caminho_encoded = caminho.replace(" ", "%20")
+        arquivo_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{caminho_encoded}:/content"
+        
+        print(f"[*] URL: {arquivo_url}")
         
         response = requests.get(
             arquivo_url,

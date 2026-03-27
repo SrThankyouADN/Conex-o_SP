@@ -12,20 +12,32 @@
         <p class="subtitle">testeConectorPython.xlsx</p>
         
         <div class="form-section">
-            <div id="loginSection">
-                <button id="loginBtn" class="btn-conectar" style="font-size: 16px; padding: 12px;">
-                    🔐 Login com Microsoft
-                </button>
-            </div>
-            
-            <div id="logoutSection" style="display: none; text-align: center;">
-                <p id="userInfo" style="margin-bottom: 10px;"></p>
-                <button id="logoutBtn" class="btn-conectar" style="background-color: #6c757d;">
-                    Desconectar
-                </button>
-            </div>
+            <form id="connectionForm">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required placeholder="seu@email.com" autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label for="senha">Senha:</label>
+                    <input type="password" id="senha" name="senha" required placeholder="Sua senha">
+                </div>
+                
+                <div class="form-group">
+                    <label for="caminho">Caminho do arquivo (OneDrive):</label>
+                    <input type="text" id="caminho" name="caminho" required placeholder="ex: teste/testeConectorPython.xlsx" value="teste/testeConectorPython.xlsx">
+                </div>
+                
+                <button type="submit" class="btn-conectar">Conectar</button>
+                <button type="button" id="listarBtn" class="btn-listar">Listar Arquivos</button>
+            </form>
             
             <div id="message" class="message"></div>
+            <div id="arquivosLista" style="display: none; margin-top: 20px;">
+                <h3>Arquivos disponíveis no OneDrive:</h3>
+                <div id="pastasList"></div>
+                <div id="arquivosList"></div>
+            </div>
         </div>
         
         <div id="tableContainer" class="table-section" style="display: none;">
@@ -38,112 +50,124 @@
     </div>
 
     <script>
-        const loginBtn = document.getElementById('loginBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const loginSection = document.getElementById('loginSection');
-        const logoutSection = document.getElementById('logoutSection');
-        const userInfo = document.getElementById('userInfo');
+        const form = document.getElementById('connectionForm');
         const messageDiv = document.getElementById('message');
         const tableContainer = document.getElementById('tableContainer');
         const tableHead = document.getElementById('resultsTable').querySelector('thead');
         const tableBody = document.getElementById('resultsTable').querySelector('tbody');
+        const listarBtn = document.getElementById('listarBtn');
+        const arquivosLista = document.getElementById('arquivosLista');
+        const pastasList = document.getElementById('pastasList');
+        const arquivosList = document.getElementById('arquivosList');
 
-        // Verificar se voltou do callback OAuth2
+        // Carregar credenciais ao iniciar
         window.addEventListener('DOMContentLoaded', async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const authStatus = urlParams.get('auth');
-            
-            if (authStatus === 'success') {
-                console.log('[OK] Login realizado com sucesso!');
-                messageDiv.textContent = 'Autenticado! Carregando dados...';
-                messageDiv.className = 'message info';
-                
-                // Limpar URL
-                window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-                
-                // Aguardar um pouco e carregar dados
-                setTimeout(async () => {
-                    await loadData();
-                }, 1000);
-            } else if (authStatus === 'error') {
-                const errorMsg = urlParams.get('message') || 'Erro desconhecido';
-                console.log('[ERRO]', errorMsg);
-                messageDiv.textContent = `✗ Erro no login: ${errorMsg}`;
-                messageDiv.className = 'message error';
-                window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+            try {
+                const response = await fetch('/credentials.json');
+                if (response.ok) {
+                    const creds = await response.json();
+                    if (creds.email) document.getElementById('email').value = creds.email;
+                    if (creds.senha) document.getElementById('senha').value = creds.senha;
+                    console.log('[OK] Credenciais carregadas');
+                }
+            } catch (err) {
+                console.log('[*] Arquivo credentials.json não disponível');
             }
-            
-            updateUIState();
         });
 
-        // Botão Login
-        loginBtn.addEventListener('click', async () => {
+        // Botão Listar Arquivos
+        listarBtn.addEventListener('click', async () => {
+            const email = document.getElementById('email').value.trim();
+            const senha = document.getElementById('senha').value;
+            
+            if (!email || !senha) {
+                messageDiv.textContent = '✗ Digite email e senha primeiro';
+                messageDiv.className = 'message error';
+                return;
+            }
+            
+            messageDiv.textContent = 'Listando arquivos...';
+            messageDiv.className = 'message info';
+            
             try {
-                console.log('[*] Iniciando processo de login...');
-                messageDiv.textContent = 'Redirecionando para Microsoft...';
-                messageDiv.className = 'message info';
-                
-                const response = await fetch('https://localhost:8443/api/login-url', {
+                const response = await fetch(`https://localhost:8443/api/listar-arquivos?email=${encodeURIComponent(email)}&senha=${encodeURIComponent(senha)}`, {
                     method: 'GET'
                 });
                 
-                if (!response.ok) throw new Error('Erro ao obter URL de login');
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Erro ao listar');
+                }
                 
-                const { login_url } = await response.json();
-                console.log('[OK] URL obtida, redirecionando...');
+                const data = await response.json();
                 
-                window.location.href = login_url;
+                // Limpar listas
+                pastasList.innerHTML = '';
+                arquivosList.innerHTML = '';
+                
+                // Mostrar pastas
+                if (data.pastas && data.pastas.length > 0) {
+                    pastasList.innerHTML = '<h4>📁 Pastas:</h4>' + 
+                        data.pastas.map(p => `<div class="item-lista">${p.nome}/</div>`).join('');
+                }
+                
+                // Mostrar arquivos
+                if (data.arquivos && data.arquivos.length > 0) {
+                    arquivosList.innerHTML = '<h4>📄 Arquivos:</h4>' + 
+                        data.arquivos.map(a => `<div class="item-lista">${a.nome}</div>`).join('');
+                }
+                
+                messageDiv.textContent = `✓ ${data.total} itens encontrados`;
+                messageDiv.className = 'message success';
+                arquivosLista.style.display = 'block';
                 
             } catch (error) {
-                console.error('[ERRO]', error);
-                messageDiv.textContent = `✗ Erro ao iniciar login: ${error.message}`;
+                messageDiv.textContent = `✗ ${error.message}`;
                 messageDiv.className = 'message error';
             }
         });
 
-        // Botão Logout
-        logoutBtn.addEventListener('click', async () => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const senha = document.getElementById('senha').value;
+            const caminho = document.getElementById('caminho').value.trim();
+            
+            messageDiv.textContent = 'Conectando...';
+            messageDiv.className = 'message info';
+            tableContainer.style.display = 'none';
+            
             try {
-                await fetch('https://localhost:8443/api/logout');
-                console.log('[OK] Desconectado');
-                tableContainer.style.display = 'none';
-                messageDiv.textContent = '';
-                updateUIState();
-            } catch (error) {
-                console.error('[ERRO]', error);
-            }
-        });
-
-        // Carregar dados do arquivo
-        async function loadData() {
-            try {
-                console.log('[*] Buscando dados do arquivo...');
-                messageDiv.textContent = 'Carregando arquivo...';
+                console.log('[*] Enviando credenciais...');
                 
                 const response = await fetch('https://localhost:8443/api/dados', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({})
+                    body: JSON.stringify({ email, senha, caminho_arquivo: caminho })
                 });
                 
                 console.log('[*] Status:', response.status);
                 
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.detail || 'Erro ao carregar arquivo');
+                    throw new Error(error.detail || 'Erro na conexão');
                 }
                 
                 const data = await response.json();
-                console.log('[OK] Dados recebidos:', data);
+                console.log('[OK] Dados recebidos:', data.total_linhas, 'linhas');
                 
                 if (data.sucesso) {
                     messageDiv.textContent = `✓ Sucesso! ${data.total_linhas} linhas encontradas.`;
                     messageDiv.className = 'message success';
                     
-                    // Criar cabeçalho
+                    // Limpar tabela
                     tableHead.innerHTML = '';
+                    tableBody.innerHTML = '';
+                    
+                    // Criar cabeçalho
                     const headerRow = document.createElement('tr');
                     data.headers.forEach(header => {
                         const th = document.createElement('th');
@@ -153,10 +177,9 @@
                     tableHead.appendChild(headerRow);
                     
                     // Preencher dados
-                    tableBody.innerHTML = '';
                     data.dados.forEach(row => {
                         const tr = document.createElement('tr');
-                        row.forEach((cell, index) => {
+                        row.forEach(cell => {
                             const td = document.createElement('td');
                             td.textContent = cell;
                             tr.appendChild(td);
@@ -165,29 +188,25 @@
                     });
                     
                     tableContainer.style.display = 'block';
-                    updateUIState();
+                    document.getElementById('senha').value = '';
                 }
             } catch (error) {
-                console.error('[ERRO]', error);
-                messageDiv.textContent = `✗ ${error.message}`;
-                messageDiv.className = 'message error';
+                console.error('[ERRO]', error.message);
                 
-                if (error.message.includes('não autenticado')) {
-                    updateUIState(false);
+                if (error.message.includes('Acesso bloqueado')) {
+                    messageDiv.textContent = '✗ Acesso bloqueado por Conditional Access. Contacte administrador.';
+                } else if (error.message.includes('Credenciais')) {
+                    messageDiv.textContent = '✗ Credenciais inválidas. Verifique email e senha.';
+                } else if (error.message.includes('não encontrado') || error.message.includes('404')) {
+                    messageDiv.textContent = '✗ Arquivo não encontrado. Verifique o caminho (ex: pasta/arquivo.xlsx)';
+                } else if (error.message.includes('Failed to fetch')) {
+                    messageDiv.textContent = '✗ Erro de conexão. Acesse https://localhost:8443';
+                } else {
+                    messageDiv.textContent = `✗ Erro: ${error.message}`;
                 }
+                messageDiv.className = 'message error';
             }
-        }
-
-        // Atualizar estado da UI
-        function updateUIState(isAuthenticated = null) {
-            if (tableContainer.style.display === 'block') {
-                loginSection.style.display = 'none';
-                logoutSection.style.display = 'block';
-            } else {
-                loginSection.style.display = 'block';
-                logoutSection.style.display = 'none';
-            }
-        }
+        });
     </script>
 </body>
 </html>

@@ -113,6 +113,30 @@ input:focus {
     transform: translateY(0);
 }
 
+.btn-listar {
+    padding: 10px 20px;
+    background: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 10px;
+    margin-left: 10px;
+}
+
+.btn-listar:hover {
+    background: #138496;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
+}
+
+.btn-listar:active {
+    transform: translateY(0);
+}
+
 .message {
     margin-top: 15px;
     padding: 12px 15px;
@@ -249,4 +273,44 @@ tbody tr:nth-child(even) {
 
 .instructions strong {
     color: #667eea;
+}
+
+/* Lista de arquivos */
+#arquivosLista {
+    background: #f0f7ff;
+    border: 1px solid #bee5eb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+#arquivosLista h3 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+#arquivosLista h4 {
+    color: #666;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.item-lista {
+    background: white;
+    border: 1px solid #dee2e6;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.item-lista:hover {
+    background: #e7f3ff;
+    border-color: #667eea;
 }
