@@ -4,12 +4,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
 import openpyxl
-from shareplum import Site
+import requests
 from requests_ntlm import HttpNtlmAuth
 
 # Constantes do SharePoint
 SITE_URL = "https://governosp.sharepoint.com/teams/SECGOVERNO-SECOM_Data"
-ARQUIVO_RELATIVO = "/Shared Documents/001_SicomData/Miscelaneous/testeConectorPython.xlsx"
+ARQUIVO_URL = "https://governosp.sharepoint.com/teams/SECGOVERNO-SECOM_Data/_api/web/GetFileByServerRelativeUrl('/teams/SECGOVERNO-SECOM_Data/Shared Documents/001_SicomData/Miscelaneous/testeConectorPython.xlsx')/$value"
 
 app = FastAPI()
 
@@ -37,22 +37,25 @@ async def obter_dados(request: CredenciaisRequest):
         
         print(f"[*] Autenticando como: {email}")
         
-        # Autenticar no SharePoint diretamente com NTLM credentials
+        # Usar requests com autenticação NTLM
         auth = HttpNtlmAuth(email, senha)
-        site = Site(SITE_URL, auth=auth)
         
-        # Testar conexão
-        print("[*] Testando conexão...")
-        web = site.web
-        print(f"[OK] Conectado a: {SITE_URL}")
-        
-        # Obter arquivo
+        # Fazer requisição para baixar arquivo
         print("[*] Buscando arquivo...")
-        arquivo_content = web.get_file(ARQUIVO_RELATIVO)
+        response = requests.get(ARQUIVO_URL, auth=auth, verify=False)
+        
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Credenciais inválidas ou acesso negado.")
+        elif response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
+        elif response.status_code != 200:
+            print(f"[ERRO] Status {response.status_code}: {response.text}")
+            raise Exception(f"Erro na requisição: {response.status_code}")
+        
         print("[OK] Arquivo baixado")
         
         # Processar Excel
-        excel_stream = BytesIO(arquivo_content)
+        excel_stream = BytesIO(response.content)
         workbook = openpyxl.load_workbook(excel_stream)
         worksheet = workbook.active
         
