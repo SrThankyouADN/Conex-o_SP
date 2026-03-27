@@ -19,9 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Servir arquivos estáticos (CSS, JS, etc)
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
-
 class URLRequest(BaseModel):
     url: str
 
@@ -33,7 +30,7 @@ def converter_url_para_download(url: str) -> str:
     
     # Formatos possíveis:
     # 1. URL normal: ...testeConectorPython.xlsx
-    # 2. URL com ?web=1: ...testeConectorPython.xlsx?web=1
+    # 2. URL com ?web=1: ...testeConadorPython.xlsx?web=1
     # 3. URL com parâmetros: ...testeConectorPython.xlsx?d=w...
     
     # Adicionar ?download=1 para forçar download
@@ -103,6 +100,9 @@ async def obter_dados(request: URLRequest):
     except Exception as e:
         print(f"[ERRO] {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar arquivo: {str(e)}")
+
+# Servir arquivos estáticos (CSS, JS, etc) - DEVE SER O ÚLTIMO
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
