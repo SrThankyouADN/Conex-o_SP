@@ -45,6 +45,21 @@
         const tableHead = document.getElementById('resultsTable').querySelector('thead');
         const tableBody = document.getElementById('resultsTable').querySelector('tbody');
 
+        // Carregar credenciais do arquivo JSON ao iniciar
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/credentials.json');
+                if (response.ok) {
+                    const creds = await response.json();
+                    if (creds.email) document.getElementById('email').value = creds.email;
+                    if (creds.senha) document.getElementById('senha').value = creds.senha;
+                    console.log('[OK] Credenciais carregadas do arquivo');
+                }
+            } catch (err) {
+                console.log('[*] Arquivo de credenciais não encontrado ou não acessível');
+            }
+        });
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             

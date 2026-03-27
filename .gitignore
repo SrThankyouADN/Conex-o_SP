@@ -21,6 +21,12 @@ build/
 .vscode/
 .idea/
 *.swp
+
+# Credenciais
+credentials.json
+.vscode/
+.idea/
+*.swp
 *.swo
 
 # Sistema
