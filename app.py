@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
 import openpyxl
 import requests
+import os
 
 app = FastAPI()
 
@@ -16,6 +18,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Servir arquivos estáticos (CSS, JS, etc)
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 class URLRequest(BaseModel):
     url: str
@@ -34,11 +39,6 @@ def converter_url_para_download(url: str) -> str:
     # Adicionar ?download=1 para forçar download
     separator = "&" if "?" in url else "?"
     return url + f"{separator}download=1"
-
-@app.get("/")
-async def root():
-    """Servir página principal"""
-    return FileResponse("index.html", media_type="text/html")
 
 @app.post("/api/dados")
 async def obter_dados(request: URLRequest):
