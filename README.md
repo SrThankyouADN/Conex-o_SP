@@ -17,11 +17,21 @@ Aplicação simples para conectar, autenticar e explorar arquivos do Microsoft S
 - Python 3.8+
 - Windows, macOS, ou Linux
 
+
+## Início Rápido
+
+- Para iniciar a aplicação rapidamente apenas clone o diretório e execute o script [iniciar.bat](iniciar.bat) presente na raiz do projeto. 
+Ele checará o ambiente, instalará dependencias e inicia o aplicativo usando um localserver em Phython. 
+
+O aplicativo estará disponível via navegador em https://localhost:8443. Siga as instruções no CLI para. 
+![Screenshot CLI](image.png) 
+
+
 ## Instalação
 
 ```bash
 # Clonar repositório
-git clone https://github.com/usuario/sharepoint-file-navigator
+git clone https://github.com/SrThankyouADN/Conex-o_SP
 cd sharepoint-file-navigator
 
 # Criar ambiente virtual
